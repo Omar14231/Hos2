@@ -1,0 +1,5 @@
+{
+  "TOKEN": process.env.DISCORD_TOKEN
+  "OWNER_ID": "1344009623887151155"
+}
+
