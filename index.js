@@ -1,71 +1,54 @@
-const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
+const { Client, GatewayIntentBits, AuditLogEvent } = require('discord.js');
+const http = require('http');
 const config = require('./config.json');
+
+// 🛡️ حل مشكلة البورت لضمان عدم توقف البوت في رندر
+http.createServer((req, res) => res.end('Bot is running safely! 🚀')).listen(process.env.PORT || 3000);
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]
 });
 
-let allowedUsers = [config.OWNER_ID];
+const OWNER_ID = "1344009623887151155";
+let allowedUsers = [OWNER_ID];
 let newsChannelId = null;
 
-client.on('ready', () => console.log(`Logged as ${client.user.tag}`));
+client.on('ready', () => console.log(`✅ تم تشغيل البوت بنجاح: ${client.user.tag} 🤖`));
 
-// نظام الحماية (استعادة الرومات والأدوار)
+// 🛡️ نظام الحماية من حذف الرومات
 client.on('channelDelete', async (channel) => {
-    if (allowedUsers.includes(channel.guild.members.cache.find(m => m.id === channel.guild.ownerId)?.id)) return;
+    const auditLogs = await channel.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.ChannelDelete });
+    const entry = auditLogs.entries.first();
     
-    // إعادة إنشاء الروم بنفس المواصفات
+    if (!entry || entry.executor.id === client.user.id || allowedUsers.includes(entry.executor.id)) return;
+
+    // استعادة الروم 🔄
     const newChannel = await channel.guild.channels.create({
-        name: channel.name,
-        type: channel.type,
-        parent: channel.parent,
-        permissionOverwrites: channel.permissionOverwrites.cache
+        name: channel.name, type: channel.type, parent: channel.parent, permissionOverwrites: channel.permissionOverwrites.cache
     });
     
     if (newsChannelId) {
-        client.channels.cache.get(newsChannelId).send(`تم حذف الروم من قبل شخص غير مصرح. تم استعادته: <#${newChannel.id}>`);
+        client.channels.cache.get(newsChannelId).send(`⚠️ تم كشف محاولة تخريب! قام <@${entry.executor.id}> بحذف الروم. تم استعادته فوراً: <#${newChannel.id}> 🛡️`);
     }
 });
 
-// الأوامر
+// 🎮 نظام الأوامر للمالك
 client.on('messageCreate', async (message) => {
-    if (!message.content.startsWith('!') || message.author.bot) return;
-    
+    if (message.author.bot || message.author.id !== OWNER_ID) return;
     const args = message.content.split(' ');
-    const command = args[0].slice(1);
-
-    // أمر !يلا
-    if (command === 'يلا' && message.author.id === config.OWNER_ID) {
+    
+    if (message.content === '!يلا') {
         newsChannelId = message.channel.id;
-        message.reply("تم تفعيل الحماية في هذا الروم.");
-    }
-
-    // أمر السماح
-    if (command === 'مسموح' && message.author.id === config.OWNER_ID) {
-        const target = message.mentions.users.first();
-        if (target) { allowedUsers.push(target.id); message.reply(`تم السماح لـ ${target.tag}`); }
-    }
-
-    // أمر غير مسموح
-    if (command === 'غير' && args[1] === 'مسموح' && message.author.id === config.OWNER_ID) {
-        const target = message.mentions.users.first();
-        allowedUsers = allowedUsers.filter(id => id !== target.id);
-        message.reply("تم إلغاء التصريح.");
+        message.reply("✅ تم تفعيل نظام الحماية في هذا الروم بنجاح! 🛡️");
+    } else if (args[0] === 'مسموح') {
+        const user = message.mentions.users.first();
+        if (user) { allowedUsers.push(user.id); message.reply(`✅ تم السماح لـ ${user.username} بالتحكم! 👑`); }
+    } else if (args[0] === 'غير' && args[1] === 'مسموح') {
+        const user = message.mentions.users.first();
+        if (user) { allowedUsers = allowedUsers.filter(id => id !== user.id); message.reply("🚫 تم إلغاء التصريح عن العضو! 🔐"); }
+    } else if (message.content === '!اوامر') {
+        message.reply("📜 **قائمة الأوامر المتاحة:**\n!يلا - تفعيل الحماية 🛡️\nمسموح @user - إضافة شخص ➕\nغير مسموح @user - إزالة شخص ➖");
     }
 });
 
-// أمر المنشن (يحتاج Slash Command Handler حقيقي، هذا اختصار)
-// يمكنك إضافة هذا كـ Slash Command في ديسكورد
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-    if (interaction.commandName === 'منشن' && interaction.user.id === config.OWNER_ID) {
-        const desc = interaction.options.getString('وصف');
-        interaction.guild.members.cache.forEach(member => {
-            if (!member.user.bot) member.send(desc).catch(console.error);
-        });
-        await interaction.reply("تم إرسال الرسالة للجميع.");
-    }
-});
-
-client.login(config.TOKEN);
-
+client.login(process.env.DISCORD_TOKEN);
