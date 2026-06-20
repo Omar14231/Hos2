@@ -1,22 +1,26 @@
-const { Client, GatewayIntentBits, AuditLogEvent, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const http = require('http');
 
-http.createServer((req, res) => res.end('Security Bot Active! 🛡️')).listen(process.env.PORT || 3000);
+// كود التفعيل لـ Render
+http.createServer((req, res) => res.end('Bot is Active!')).listen(process.env.PORT || 3000);
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]
 });
 
 const OWNER_ID = "1344009623887151155";
-let allowedUsers = [OWNER_ID];
-let logChannelId = null;
+const ADMIN_ROLES = ["1508200281429770412", "1509306208517881866", "1509740495486587073", "1517511232867930112"];
 
-// تسجيل أوامر Slash
 const commands = [
     new SlashCommandBuilder()
         .setName('منشن')
-        .setDescription('إرسال رسالة خاصة لجميع الأعضاء')
-        .addStringOption(option => option.setName('وصف').setDescription('نص الرسالة').setRequired(true))
+        .setDescription('رسالة للكل - للمالك فقط')
+        .addStringOption(option => option.setName('وصف').setDescription('نص الرسالة').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('تحذير')
+        .setDescription('تحذير عضو في الخاص')
+        .addUserOption(option => option.setName('الشخص').setDescription('العضو المراد تحذيره').setRequired(true))
+        .addStringOption(option => option.setName('السبب').setDescription('سبب التحذير').setRequired(true))
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -26,69 +30,55 @@ client.on('ready', async () => {
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
 });
 
-// 🛡️ [الحماية]
-async function sendAlert(guild, message) {
-    if (logChannelId) {
-        const channel = guild.channels.cache.get(logChannelId);
-        if (channel) channel.send(`🛡️ **تنبيه أمني:** ${message}`);
-    }
-}
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
 
-client.on('channelDelete', async (channel) => {
-    const auditLogs = await channel.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.ChannelDelete });
-    const entry = auditLogs.entries.first();
-    if (!entry || entry.executor.id === client.user.id || allowedUsers.includes(entry.executor.id)) return;
-
-    await channel.guild.channels.create({
-        name: channel.name,
-        type: channel.type,
-        parent: channel.parent,
-        permissionOverwrites: channel.permissionOverwrites.cache,
-        position: channel.position
-    });
-    sendAlert(channel.guild, `قام <@${entry.executor.id}> بحذف روم وتم استعادته.`);
-});
-
-client.on('roleDelete', async (role) => {
-    const auditLogs = await role.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.RoleDelete });
-    const entry = auditLogs.entries.first();
-    if (!entry || entry.executor.id === client.user.id || allowedUsers.includes(entry.executor.id)) return;
+    // ردود الفعل التلقائية
+    if (message.content.includes("السلام عليكم")) message.reply("وعليكم السلام ورحمة الله وبركاته، أرحب!");
     
-    role.guild.roles.create({ name: role.name, color: role.color, permissions: role.permissions });
-    sendAlert(role.guild, `قام <@${entry.executor.id}> بحذف رتبة وتم استعادتها.`);
-});
+    if (message.mentions.has(client.user)) {
+        message.react('👀');
+        if (message.content.includes("انت صاحي")) {
+            message.reply("اي نعم انا شغال وا اعمل الان بشكل جيد");
+        }
+    }
 
-client.on('roleUpdate', async (oldRole, newRole) => {
-    if (oldRole.name !== newRole.name) {
-        const auditLogs = await newRole.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.RoleUpdate });
-        const entry = auditLogs.entries.first();
-        if (entry && !allowedUsers.includes(entry.executor.id)) {
-            await newRole.setName(oldRole.name);
-            sendAlert(newRole.guild, `قام <@${entry.executor.id}> بتغيير اسم رتبة وتم التراجع.`);
+    // أمر -تعال
+    if (message.content.startsWith("-تعال")) {
+        const target = message.mentions.members.first();
+        if (target) {
+            try {
+                await target.send(`💡 تنبيه: الشخص ${message.author.username} يطلبك في روم: ${message.channel.name}`);
+                message.reply(`✅ تم إرسال طلب القدوم لـ ${target.user.username} في الخاص.`);
+            } catch (e) { message.reply("⚠️ لا يمكنني مراسلة هذا الشخص (الخاص مغلق)."); }
         }
     }
 });
 
-// 🎮 التعامل مع الأوامر
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
+
+    // منطق التحقق من الرتب
+    const isOwner = interaction.user.id === OWNER_ID;
+    const isAdmin = interaction.member.roles.cache.some(r => ADMIN_ROLES.includes(r.id));
+
     if (interaction.commandName === 'منشن') {
-        if (interaction.user.id !== OWNER_ID) return interaction.reply({ content: "للمالك فقط!", ephemeral: true });
-        
-        const text = interaction.options.getString('وصف');
+        if (!isOwner) return interaction.reply({ content: "للمالك فقط!", ephemeral: true });
         await interaction.reply({ content: "جاري الإرسال...", ephemeral: true });
-        
         interaction.guild.members.cache.forEach(async member => {
-            if (!member.user.bot) {
-                try { await member.send(text); } catch (e) { console.log(`Cannot DM ${member.user.tag}`); }
-            }
+            if (!member.user.bot) try { await member.send(interaction.options.getString('وصف')); } catch (e) {}
         });
     }
-});
 
-client.on('messageCreate', async (message) => {
-    if (message.author.id !== OWNER_ID) return;
-    if (message.content === '!يلا') { logChannelId = message.channel.id; message.reply("✅ تم تفعيل الحماية والتبليغ هنا!"); }
+    if (interaction.commandName === 'تحذير') {
+        if (!isOwner && !isAdmin) return interaction.reply({ content: "ليس لديك صلاحية لاستخدام هذا الأمر.", ephemeral: true });
+        const member = interaction.options.getMember('الشخص');
+        const reason = interaction.options.getString('السبب');
+        try {
+            await member.send(`⚠️ **تنبيه:** تم تحذيرك في سيرفر ${interaction.guild.name}\n**السبب:** ${reason}`);
+            interaction.reply({ content: `✅ تم تحذير ${member.user.tag} بنجاح.`, ephemeral: true });
+        } catch (e) { interaction.reply({ content: "⚠️ لم أستطع إرسال الرسالة، قد يكون الخاص مغلقاً.", ephemeral: true }); }
+    }
 });
 
 client.login(process.env.DISCORD_TOKEN);
