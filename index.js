@@ -74,13 +74,17 @@ client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (message.content.includes("السلام عليكم")) message.reply("وعليكم السلام ارحب 👋");
     
-    if (message.content.startsWith("-تعال")) {
+        if (message.content.startsWith("-تعال")) {
         const target = message.mentions.members.first();
         if (target) {
-            target.send(`يطلبك ${message.author.username} في الروم: ${message.channel.name}\nالرابط: ${message.channel.url} 🔗`).catch(() => {});
-            message.reply("تم إرسال الطلب للخاص 📩");
+            target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗`)
+                .then(() => message.reply("تم إرسال الرابط للشخص في الخاص 📩"))
+                .catch(() => message.reply("عذراً، لم أستطع الإرسال، ربما الشخص مغلق الرسائل الخاصة 🔒"));
+        } else {
+            message.reply("يرجى عمل منشن للشخص الذي تريد دعوته! ⚠️");
         }
     }
+
 
     if (message.content.startsWith("#تحذيرات")) {
         const target = message.mentions.users.first() || message.author;
