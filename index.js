@@ -57,9 +57,9 @@ client.on('interactionCreate', async interaction => {
         warnings[target.id].push(reason);
         saveWarnings();
 
-        const embed = new EmbedBuilder().setColor(0xFF0000).setTitle('⚠️ تم تحذيرك').setDescription(`السبب: ${reason}`);
+        const embed = new EmbedBuilder().setColor(0xFF0000).setTitle(':AttentionAnimated: تم تحذيرك').setDescription(`السبب: ${reason}`);
         target.send({ embeds: [embed] }).catch(() => {});
-        interaction.reply({ content: `تم تحذير ${target.username} ⚠🚨` });
+        interaction.reply({ content: `تم تحذير ${target.username} :AttentionAnimated:` });
     }
 
     if (interaction.commandName === 'شيل') {
