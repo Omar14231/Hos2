@@ -49,18 +49,34 @@ client.on('interactionCreate', async interaction => {
         interaction.guild.members.cache.forEach(async m => { if (!m.user.bot) m.send(interaction.options.getString('وصف')).catch(() => {}); });
     }
 
-    if (interaction.commandName === 'تحذير') {
+        if (interaction.commandName === 'تحذير') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
+        
         const target = interaction.options.getUser('الشخص');
         const reason = interaction.options.getString('السبب');
+        const sender = interaction.user;
+
         if (!warnings[target.id]) warnings[target.id] = [];
         warnings[target.id].push(reason);
         saveWarnings();
 
-        const embed = new EmbedBuilder().setColor(0xFF0000).setTitle('⚠🚨 تم تحذيرك').setDescription(`السبب: ${reason}`);
-        target.send({ embeds: [embed] }).catch(() => {});
-        interaction.reply({ content: `تم تحذير ${target.username} 🚨` });
+        // تصميم التحذير ليكون مرعباً ومباشراً
+        const embed = new EmbedBuilder()
+            .setColor(0xFF0000)
+            .setTitle('🚨 تحذير شديد اللهجة 🚨')
+            .setDescription(`**تم تحذيرك من قبل الإدارة!**\n\n**الشخص المسؤول:** ${sender}\n**السبب:** \`${reason}\`\n\n**نصيحة:** التزم بالقوانين لتجنب العقوبات القادمة!`)
+            .setTimestamp()
+            .setFooter({ text: 'نظام الأمان التلقائي' });
+
+        // إرسال المنشن مع الإيمبيد في الخاص
+        target.send({ 
+            content: `<@${target.id}> **عليك الانتباه!**`, 
+            embeds: [embed] 
+        }).catch(() => {});
+
+        interaction.reply({ content: `تم سحق ${target.username} بالتحذير بنجاح! ⚠️🔥` });
     }
+
 
     if (interaction.commandName === 'شيل') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
