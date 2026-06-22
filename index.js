@@ -74,7 +74,7 @@ client.on('interactionCreate', async interaction => {
             embeds: [embed] 
         }).catch(() => {});
 
-        interaction.reply({ content: `تم سحق ${target.username} بالتحذير بنجاح! ⚠️🔥` });
+        interaction.reply({ content: `تم تحذير ${target.username} بنجاح! ⚠️🔥` });
     }
 
 
