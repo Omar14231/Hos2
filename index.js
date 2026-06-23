@@ -140,25 +140,42 @@ client.on('messageCreate', async message => {
     }
 
     if (message.content.startsWith("-تحذيرات")) {
-        const target = message.mentions.users.first();
-        
-        if (target) {
-            const list = (warnings[target.id] && warnings[target.id].length > 0) 
-                ? warnings[target.id].map((r, i) => `${i + 1}- ${r.reason || r}`).join('\n') 
-                : "لا يوجد تحذيرات.";
-            message.reply(`قائمة تحذيرات ${target.username}:\n${list} 📋`);
-        } else {
-            const recentWarnings = Object.entries(warnings)
-                .slice(-10)
-                .map(([id, data], i) => {
-                    const lastWarning = data && data.length > 0 ? data[data.length - 1] : null;
-                    const adminName = lastWarning && lastWarning.adminName ? lastWarning.adminName : "غير معروف";
-                    return `${i + 1}- العضو: <@${id}> | بواسطة: ${adminName}`;
-                })
-                .join('\n');
-            message.reply(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
+    // 1. إرسال رسالة التحميل أولاً
+    const loadingMsg = await message.reply("<a:emoji_2:1519112126445256744> جاري جلب السجلات، يرجى الانتظار...");
+
+    // 2. تأخير لمدة 2000 ميلي ثانية (ثانيتين)
+    setTimeout(async () => {
+        try {
+            const target = message.mentions.users.first();
+            
+            if (target) {
+                const list = (warnings[target.id] && warnings[target.id].length > 0) 
+                    ? warnings[target.id].map((r, i) => `${i + 1}- ${r.reason || r}`).join('\n') 
+                    : "لا يوجد تحذيرات.";
+                
+                // تعديل رسالة التحميل بالنتيجة
+                await loadingMsg.edit(`قائمة تحذيرات ${target.username}:\n${list} 📋`);
+            } else {
+                const recentWarnings = Object.entries(warnings)
+                    .slice(-10)
+                    .map(([id, data], i) => {
+                        const lastWarning = data && data.length > 0 ? data[data.length - 1] : null;
+                        const adminName = lastWarning && lastWarning.adminName ? lastWarning.adminName : "غير معروف";
+                        return `${i + 1}- العضو: <@${id}> | بواسطة: ${adminName}`;
+                    })
+                    .join('\n');
+                
+                // تعديل رسالة التحميل بالنتيجة
+                await loadingMsg.edit(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
+            }
+        } catch (error) {
+            console.error("Error in -تحذيرات:", error);
+            // في حال حدوث خطأ، نحدث الرسالة لتنبيهك
+            await loadingMsg.edit("<a:emoji_3:1519115319040413859> حدث خطأ أثناء جلب البيانات.").catch(() => {});
         }
-    }
+    }, 2000); // 2000 ميلي ثانية = ثانيتين
+}
+
 
     if (message.mentions.has(client.user) && !message.mentions.everyone && !message.mentions.here) {
         message.react('👀');
