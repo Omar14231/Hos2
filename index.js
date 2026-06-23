@@ -91,22 +91,38 @@ client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (message.content.includes("السلام عليكم")) message.reply("وعليكم السلام ارحب 👋");
     
-    if (message.content.startsWith("-تعال")) {
+        if (message.content.startsWith("-تعال")) {
         const target = message.mentions.members.first();
-        const everyone = message.mentions.everyone;
+        const everyone = message.mentions.everyone || message.content.includes("@here");
 
+        // التحقق إذا كان الطلب منشن للكل
         if (everyone) {
-            if (message.member.permissions.has("ADMINISTRATOR") || message.member.permissions.has("MANAGE_MESSAGES")) {
-                message.channel.send(`يطلبكم ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: @everyone`);
-            } else {
-                message.reply("عذراً، فقط أصحاب الرتب المخصصة يمكنهم منشن الجميع! ⚠️");
+            // التحقق من صلاحية الإداري
+            if (!message.member.permissions.has("ADMINISTRATOR") && !message.member.permissions.has("MANAGE_MESSAGES")) {
+                return message.reply("عذراً، هذه الخاصية للإداريين فقط! ⚠️");
             }
-        } else if (target) {
+
+            message.reply("جاري إرسال الطلب للجميع في الخاص... 📩");
+
+            // إرسال رسالة خاصة لكل عضو في السيرفر
+            message.guild.members.fetch().then(members => {
+                members.forEach(m => {
+                    if (!m.user.bot) {
+                        m.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗`)
+                         .catch(() => {}); // نتجاهل الأخطاء إذا كان العضو مغلق الخاص
+                    }
+                });
+            });
+        } 
+        // إذا كان منشن لشخص واحد فقط
+        else if (target) {
             target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: <@${target.id}>`)
-                .then(() => message.reply("تم إرسال الطلب مع المنشن للشخص في الخاص 📩"))
+                .then(() => message.reply("تم إرسال الطلب للشخص في الخاص 📩"))
                 .catch(() => message.reply("عذراً، لم أستطع الإرسال، ربما الشخص مغلق الرسائل الخاصة 🔒"));
-        } else {
-            message.reply("يرجى عمل منشن للشخص الذي تريد دعوته! ⚠️");
+        } 
+        // إذا لم يتم منشن أحد
+        else {
+            message.reply("يرجى عمل منشن للشخص أو للجميع! ⚠️");
         }
     }
 
