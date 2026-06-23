@@ -93,11 +93,38 @@ client.on('interactionCreate', async interaction => {
 
 
     if (interaction.commandName === 'شيل') {
-        if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
-        const target = interaction.options.getUser('الشخص');
-        warnings[target.id] = []; saveWarnings();
-        interaction.reply(`تم مسح تحذيرات ${target.username} ✅`);
-    }
+    if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
+    
+    const target = interaction.options.getUser('الشخص');
+    
+    // 1. بداية التحميل (الرسالة الأولى)
+    await interaction.reply({ content: "<a:emoji_2:1519112126445256744> جاري التحميل...", fetchReply: true });
+
+    // 2. الانتظار لمدة 5 ثواني ثم الانتقال لمرحلة "جاري الفحص"
+    setTimeout(async () => {
+        try {
+            await interaction.editReply({ content: "<a:emoji_4:1519119683394076824> جاري فحص البيانات... جاري مسح جميع تحذيرات هذا الشخص" });
+
+            // 3. تنفيذ عملية المسح الفعلية بعد فترة وجيزة (مثلاً ثانيتين) لإعطاء وقت للقراءة
+            setTimeout(async () => {
+                try {
+                    warnings[target.id] = []; 
+                    saveWarnings();
+                    
+                    // الرسالة النهائية
+                    await interaction.editReply({ content: `تم مسح جميع التحذيرات بنجاح! <a:emoji_5:1519120305061236909>` });
+                } catch (err) {
+                    throw err;
+                }
+            }, 2000);
+
+        } catch (error) {
+            console.error("Error in 'شيل' command:", error);
+            await interaction.editReply({ content: "<a:emoji_3:1519115319040413859> حدث خطأ أثناء تنفيذ الأمر." }).catch(() => {});
+        }
+    }, 5000); // الانتظار الأولي 5 ثواني
+}
+
 });
 
 client.on('messageCreate', async message => {
