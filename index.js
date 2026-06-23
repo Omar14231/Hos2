@@ -49,13 +49,15 @@ client.on('interactionCreate', async interaction => {
         interaction.guild.members.cache.forEach(async m => { if (!m.user.bot) m.send(interaction.options.getString('وصف')).catch(() => {}); });
     }
 
-        if (interaction.commandName === 'تحذير') {
+            if (interaction.commandName === 'تحذير') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
         
         const target = interaction.options.getUser('الشخص');
         const reason = interaction.options.getString('السبب');
         const sender = interaction.user;
-        const emoji = "<a:AttentionAnimated:123456789012345678>"; // تأكد من وضع ID الإيموجي الصحيح هنا
+        
+        // تم تحديث الكود بالإيموجي الخاص بك
+        const emoji = "<a:AttentionAnimated:1478492988421443757>"; 
 
         if (!warnings[target.id]) warnings[target.id] = [];
         warnings[target.id].push({ reason: reason, adminName: sender.username });
@@ -75,6 +77,7 @@ client.on('interactionCreate', async interaction => {
 
         interaction.reply({ content: `تم تحذير ${target.username} بنجاح! ${emoji}🔥` });
     }
+
 
     if (interaction.commandName === 'شيل') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
