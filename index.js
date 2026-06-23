@@ -49,7 +49,7 @@ client.on('interactionCreate', async interaction => {
         interaction.guild.members.cache.forEach(async m => { if (!m.user.bot) m.send(interaction.options.getString('وصف')).catch(() => {}); });
     }
 
-        if (interaction.commandName === 'تحذير') {
+    if (interaction.commandName === 'تحذير') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
         
         const target = interaction.options.getUser('الشخص');
@@ -57,10 +57,10 @@ client.on('interactionCreate', async interaction => {
         const sender = interaction.user;
 
         if (!warnings[target.id]) warnings[target.id] = [];
-        warnings[target.id].push(reason);
+        // تخزين السبب واسم الإداري معاً
+        warnings[target.id].push({ reason: reason, adminName: sender.username });
         saveWarnings();
 
-        // تصميم التحذير ليكون مرعباً ومباشراً
         const embed = new EmbedBuilder()
             .setColor(0xFF0000)
             .setTitle('🚨 تحذير شديد اللهجة 🚨')
@@ -68,15 +68,9 @@ client.on('interactionCreate', async interaction => {
             .setTimestamp()
             .setFooter({ text: 'نظام الأمان التلقائي' });
 
-        // إرسال المنشن مع الإيمبيد في الخاص
-        target.send({ 
-            content: `<@${target.id}> **عليك الانتباه!**`, 
-            embeds: [embed] 
-        }).catch(() => {});
-
+        target.send({ content: `<@${target.id}> **عليك الانتباه!**`, embeds: [embed] }).catch(() => {});
         interaction.reply({ content: `تم تحذير ${target.username} بنجاح! ⚠️🔥` });
     }
-
 
     if (interaction.commandName === 'شيل') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
@@ -90,50 +84,45 @@ client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (message.content.includes("السلام عليكم")) message.reply("وعليكم السلام ارحب 👋");
     
-            if (message.content.startsWith("-تعال")) {
-    const target = message.mentions.members.first();
-    const everyone = message.mentions.everyone;
+    if (message.content.startsWith("-تعال")) {
+        const target = message.mentions.members.first();
+        const everyone = message.mentions.everyone;
 
-    if (everyone) {
-        if (message.member.permissions.has("ADMINISTRATOR") || message.member.permissions.has("MANAGE_MESSAGES")) {
-            message.channel.send(`يطلبكم ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: @everyone`);
+        if (everyone) {
+            if (message.member.permissions.has("ADMINISTRATOR") || message.member.permissions.has("MANAGE_MESSAGES")) {
+                message.channel.send(`يطلبكم ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: @everyone`);
+            } else {
+                message.reply("عذراً، فقط أصحاب الرتب المخصصة يمكنهم منشن الجميع! ⚠️");
+            }
+        } else if (target) {
+            target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: <@${target.id}>`)
+                .then(() => message.reply("تم إرسال الطلب مع المنشن للشخص في الخاص 📩"))
+                .catch(() => message.reply("عذراً، لم أستطع الإرسال، ربما الشخص مغلق الرسائل الخاصة 🔒"));
         } else {
-            message.reply("عذراً، فقط أصحاب الرتب المخصصة يمكنهم منشن الجميع! ⚠️");
+            message.reply("يرجى عمل منشن للشخص الذي تريد دعوته! ⚠️");
         }
-    } else if (target) {
-        target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: <@${target.id}>`)
-            .then(() => message.reply("تم إرسال الطلب مع المنشن للشخص في الخاص 📩"))
-            .catch(() => message.reply("عذراً، لم أستطع الإرسال، ربما الشخص مغلق الرسائل الخاصة 🔒"));
-    } else {
-        message.reply("يرجى عمل منشن للشخص الذي تريد دعوته! ⚠️");
     }
-}
-
-
-
 
     if (message.content.startsWith("-تحذيرات")) {
-    const target = message.mentions.users.first();
-    
-    if (target) {
-        const list = warnings[target.id] ? warnings[target.id].map((r, i) => `${i + 1}- ${r}`).join('\n') : "لا يوجد تحذيرات.";
-        message.reply(`قائمة تحذيرات ${target.username}:\n${list} 📋`);
-    } else {
-        const recentWarnings = Object.entries(warnings)
-            .slice(-10)
-            .map(([id, data], i) => {
-                // بافتراض أن البيانات المخزنة تحتوي على اسم الإداري وسبب التحذير
-                const lastWarning = data[data.length - 1]; 
-                return `${i + 1}- العضو: <@${id}> | بواسطة: ${lastWarning.adminName || "غير معروف"}`;
-            })
-            .join('\n');
+        const target = message.mentions.users.first();
         
-        message.reply(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
+        if (target) {
+            const list = (warnings[target.id] && warnings[target.id].length > 0) 
+                ? warnings[target.id].map((r, i) => `${i + 1}- ${r.reason || r}`).join('\n') 
+                : "لا يوجد تحذيرات.";
+            message.reply(`قائمة تحذيرات ${target.username}:\n${list} 📋`);
+        } else {
+            const recentWarnings = Object.entries(warnings)
+                .slice(-10)
+                .map(([id, data], i) => {
+                    const lastWarning = data && data.length > 0 ? data[data.length - 1] : null;
+                    const adminName = lastWarning && lastWarning.adminName ? lastWarning.adminName : "غير معروف";
+                    return `${i + 1}- العضو: <@${id}> | بواسطة: ${adminName}`;
+                })
+                .join('\n');
+            message.reply(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
+        }
     }
-}
-
-
-
 
     if (message.mentions.has(client.user) && !message.mentions.everyone && !message.mentions.here) {
         message.react('👀');
