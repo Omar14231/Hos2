@@ -121,12 +121,17 @@ client.on('messageCreate', async message => {
     } else {
         const recentWarnings = Object.entries(warnings)
             .slice(-10)
-            .map(([id, list], i) => `${i + 1}- <@${id}>: ${list.length} تحذيرات`)
+            .map(([id, data], i) => {
+                // بافتراض أن البيانات المخزنة تحتوي على اسم الإداري وسبب التحذير
+                const lastWarning = data[data.length - 1]; 
+                return `${i + 1}- العضو: <@${id}> | بواسطة: ${lastWarning.adminName || "غير معروف"}`;
+            })
             .join('\n');
         
         message.reply(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
     }
 }
+
 
 
 
