@@ -112,7 +112,7 @@ client.on('messageCreate', async message => {
 
 
 
-    if (message.content.startsWith("#تحذيرات")) {
+    if (message.content.startsWith("-تحذيرات")) {
     const target = message.mentions.users.first();
     
     if (target) {
@@ -127,6 +127,7 @@ client.on('messageCreate', async message => {
         message.reply(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
     }
 }
+
 
 
     if (message.mentions.has(client.user) && !message.mentions.everyone && !message.mentions.here) {
