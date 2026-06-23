@@ -91,24 +91,43 @@ client.on('messageCreate', async message => {
     if (message.content.includes("السلام عليكم")) message.reply("وعليكم السلام ارحب 👋");
     
             if (message.content.startsWith("-تعال")) {
-        const target = message.mentions.members.first();
-        if (target) {
-            // هنا قمنا باستخدام <@${target.id}> لعمل المنشن الفعلي
-            target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: <@${target.id}>`)
-                .then(() => message.reply("تم إرسال الطلب مع المنشن للشخص في الخاص 📩"))
-                .catch(() => message.reply("عذراً، لم أستطع الإرسال، ربما الشخص مغلق الرسائل الخاصة 🔒"));
+    const target = message.mentions.members.first();
+    const everyone = message.mentions.everyone;
+
+    if (everyone) {
+        if (message.member.permissions.has("ADMINISTRATOR") || message.member.permissions.has("MANAGE_MESSAGES")) {
+            message.channel.send(`يطلبكم ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: @everyone`);
         } else {
-            message.reply("يرجى عمل منشن للشخص الذي تريد دعوته! ⚠️");
+            message.reply("عذراً، فقط أصحاب الرتب المخصصة يمكنهم منشن الجميع! ⚠️");
         }
+    } else if (target) {
+        target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: <@${target.id}>`)
+            .then(() => message.reply("تم إرسال الطلب مع المنشن للشخص في الخاص 📩"))
+            .catch(() => message.reply("عذراً، لم أستطع الإرسال، ربما الشخص مغلق الرسائل الخاصة 🔒"));
+    } else {
+        message.reply("يرجى عمل منشن للشخص الذي تريد دعوته! ⚠️");
     }
+}
+
 
 
 
     if (message.content.startsWith("#تحذيرات")) {
-        const target = message.mentions.users.first() || message.author;
+    const target = message.mentions.users.first();
+    
+    if (target) {
         const list = warnings[target.id] ? warnings[target.id].map((r, i) => `${i + 1}- ${r}`).join('\n') : "لا يوجد تحذيرات.";
         message.reply(`قائمة تحذيرات ${target.username}:\n${list} 📋`);
+    } else {
+        const recentWarnings = Object.entries(warnings)
+            .slice(-10)
+            .map(([id, list], i) => `${i + 1}- <@${id}>: ${list.length} تحذيرات`)
+            .join('\n');
+        
+        message.reply(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
     }
+}
+
 
     if (message.mentions.has(client.user) && !message.mentions.everyone && !message.mentions.here) {
         message.react('👀');
