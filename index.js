@@ -49,27 +49,31 @@ client.on('interactionCreate', async interaction => {
         interaction.guild.members.cache.forEach(async m => { if (!m.user.bot) m.send(interaction.options.getString('وصف')).catch(() => {}); });
     }
 
-    if (interaction.commandName === 'تحذير') {
+        if (interaction.commandName === 'تحذير') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
         
         const target = interaction.options.getUser('الشخص');
         const reason = interaction.options.getString('السبب');
         const sender = interaction.user;
+        const emoji = "<a:AttentionAnimated:123456789012345678>"; // تأكد من وضع ID الإيموجي الصحيح هنا
 
         if (!warnings[target.id]) warnings[target.id] = [];
-        // تخزين السبب واسم الإداري معاً
         warnings[target.id].push({ reason: reason, adminName: sender.username });
         saveWarnings();
 
         const embed = new EmbedBuilder()
             .setColor(0xFF0000)
-            .setTitle('🚨 تحذير شديد اللهجة 🚨')
+            .setTitle(`${emoji} تحذير شديد اللهجة ${emoji}`)
             .setDescription(`**تم تحذيرك من قبل الإدارة!**\n\n**الشخص المسؤول:** ${sender}\n**السبب:** \`${reason}\`\n\n**نصيحة:** التزم بالقوانين لتجنب العقوبات القادمة!`)
             .setTimestamp()
             .setFooter({ text: 'نظام الأمان التلقائي' });
 
-        target.send({ content: `<@${target.id}> **عليك الانتباه!**`, embeds: [embed] }).catch(() => {});
-        interaction.reply({ content: `تم تحذير ${target.username} بنجاح! ⚠️🔥` });
+        target.send({ 
+            content: `${emoji} <@${target.id}> **عليك الانتباه!** ${emoji}`, 
+            embeds: [embed] 
+        }).catch(() => {});
+
+        interaction.reply({ content: `تم تحذير ${target.username} بنجاح! ${emoji}🔥` });
     }
 
     if (interaction.commandName === 'شيل') {
