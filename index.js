@@ -50,33 +50,46 @@ client.on('interactionCreate', async interaction => {
     }
 
             if (interaction.commandName === 'تحذير') {
-        if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
-        
-        const target = interaction.options.getUser('الشخص');
-        const reason = interaction.options.getString('السبب');
-        const sender = interaction.user;
-        
-        // تم تحديث الكود بالإيموجي الخاص بك
-        const emoji = "<a:AttentionAnimated:1478492988421443757>"; 
+    if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
+    
+    const target = interaction.options.getUser('الشخص');
+    const reason = interaction.options.getString('السبب');
+    const sender = interaction.user;
 
-        if (!warnings[target.id]) warnings[target.id] = [];
-        warnings[target.id].push({ reason: reason, adminName: sender.username });
-        saveWarnings();
+    // 1. إرسال رد التحميل (استخدام fetchReply لجلب الرسالة وتعديلها لاحقاً)
+    await interaction.reply({ content: "<a:emoji_2:1519112126445256744> جاري معالجة التحذير...", fetchReply: true });
 
-        const embed = new EmbedBuilder()
-            .setColor(0xFF0000)
-            .setTitle(`${emoji} تحذير شديد اللهجة ${emoji}`)
-            .setDescription(`**تم تحذيرك من قبل الإدارة!**\n\n**الشخص المسؤول:** ${sender}\n**السبب:** \`${reason}\`\n\n**نصيحة:** التزم بالقوانين لتجنب العقوبات القادمة!`)
-            .setTimestamp()
-            .setFooter({ text: 'نظام الأمان التلقائي' });
+    // 2. استخدام setTimeout لانتظار 5 ثوانٍ مع معالجة الأخطاء لضمان عدم توقف البوت
+    setTimeout(async () => {
+        try {
+            // تحديث بيانات التحذيرات
+            if (!warnings[target.id]) warnings[target.id] = [];
+            warnings[target.id].push({ reason: reason, adminName: sender.username });
+            saveWarnings();
 
-        target.send({ 
-            content: `${emoji} <@${target.id}> **عليك الانتباه!** ${emoji}`, 
-            embeds: [embed] 
-        }).catch(() => {});
+            const embed = new EmbedBuilder()
+                .setColor(0xFF0000)
+                .setTitle(`<a:emoji_2:1519115296961466500> تحذير شديد اللهجة <a:emoji_2:1519115296961466500>`)
+                .setDescription(`**تم تحذيرك من قبل الإدارة!**\n\n**الشخص المسؤول:** ${sender}\n**السبب:** \`${reason}\`\n\n**نصيحة:** التزم بالقوانين لتجنب العقوبات القادمة!`)
+                .setTimestamp()
+                .setFooter({ text: 'نظام الأمان التلقائي' });
 
-        interaction.reply({ content: `تم تحذير ${target.username} بنجاح! ${emoji}🔥` });
-    }
+            // إرسال الإشعار للعضو في الخاص
+            await target.send({ 
+                content: `<a:emoji_2:1519115296961466500> <@${target.id}> **عليك الانتباه!** <a:emoji_2:1519115296961466500>`, 
+                embeds: [embed] 
+            }).catch(() => {});
+
+            // 3. تعديل رسالة البوت لتأكيد النجاح
+            await interaction.editReply({ content: `تم تحذير ${target.username} بنجاح! <a:emoji_2:1519115296961466500>` });
+
+        } catch (error) {
+            // في حالة حدوث أي خطأ، نغير الإيموجي لعلامة الخطأ ونطبع الخطأ في الكونسول فقط
+            console.error("Error in warning command:", error);
+            await interaction.editReply({ content: `<a:emoji_3:1519115319040413859> حدث خطأ أثناء التحذير، يرجى المحاولة لاحقاً.` }).catch(() => {});
+        }
+    }, 5000); // 5 ثوانٍ
+}
 
 
     if (interaction.commandName === 'شيل') {
