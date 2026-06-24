@@ -46,166 +46,128 @@ client.on('interactionCreate', async interaction => {
     if (interaction.commandName === 'منشن') {
         if (interaction.user.id !== OWNER_ID) return interaction.reply({ content: "للمالك فقط!", ephemeral: true });
         await interaction.reply({ content: "جاري الإرسال...", ephemeral: true });
-        interaction.guild.members.cache.forEach(async m => { if (!m.user.bot) m.send(interaction.options.getString('وصف')).catch(() => {}); });
+        interaction.guild.members.cache.forEach(async m => { 
+            if (!m.user.bot) {
+                m.send(interaction.options.getString('وصف')).then(msg => {
+                    setTimeout(() => msg.delete().catch(() => {}), 120000);
+                }).catch(() => {});
+            }
+        });
     }
 
-            if (interaction.commandName === 'تحذير') {
-    if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
-    
-    const target = interaction.options.getUser('الشخص');
-    const reason = interaction.options.getString('السبب');
-    const sender = interaction.user;
+    if (interaction.commandName === 'تحذير') {
+        if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
+        const target = interaction.options.getUser('الشخص');
+        const reason = interaction.options.getString('السبب');
+        const sender = interaction.user;
 
-    // 1. إرسال رد التحميل (استخدام fetchReply لجلب الرسالة وتعديلها لاحقاً)
-    await interaction.reply({ content: "<a:emoji_7:1519294675180195910> جاري معالجة التحذير...", fetchReply: true });
+        await interaction.reply({ content: "<a:emoji_7:1519294675180195910> جاري معالجة التحذير...", fetchReply: true });
 
-    // 2. استخدام setTimeout لانتظار 5 ثوانٍ مع معالجة الأخطاء لضمان عدم توقف البوت
-    setTimeout(async () => {
-        try {
-            // تحديث بيانات التحذيرات
-            if (!warnings[target.id]) warnings[target.id] = [];
-            warnings[target.id].push({ reason: reason, adminName: sender.username });
-            saveWarnings();
+        setTimeout(async () => {
+            try {
+                if (!warnings[target.id]) warnings[target.id] = [];
+                warnings[target.id].push({ reason: reason, adminName: sender.username });
+                saveWarnings();
 
-            const embed = new EmbedBuilder()
-                .setColor(0xFF0000)
-                .setTitle(`<a:emoji_2:1519115296961466500> تحذير شديد اللهجة <a:emoji_2:1519115296961466500>`)
-                .setDescription(`**تم تحذيرك من قبل الإدارة!**\n\n**الشخص المسؤول:** ${sender}\n**السبب:** \`${reason}\`\n\n**نصيحة:** التزم بالقوانين لتجنب العقوبات القادمة!`)
-                .setTimestamp()
-                .setFooter({ text: 'نظام الأمان التلقائي' });
+                const embed = new EmbedBuilder()
+                    .setColor(0xFF0000)
+                    .setTitle(`<a:emoji_2:1519115296961466500> تحذير شديد اللهجة <a:emoji_2:1519115296961466500>`)
+                    .setDescription(`**تم تحذيرك من قبل الإدارة!**\n\n**الشخص المسؤول:** ${sender}\n**السبب:** \`${reason}\`\n\n**نصيحة:** التزم بالقوانين لتجنب العقوبات القادمة!`)
+                    .setTimestamp()
+                    .setFooter({ text: 'نظام الأمان التلقائي' });
 
-            // إرسال الإشعار للعضو في الخاص
-            await target.send({ 
-                content: `<a:emoji_2:1519115296961466500> <@${target.id}> **عليك الانتباه!** <a:emoji_2:1519115296961466500>`, 
-                embeds: [embed] 
-            }).catch(() => {});
+                await target.send({ 
+                    content: `<a:emoji_2:1519115296961466500> <@${target.id}> **عليك الانتباه!** <a:emoji_2:1519115296961466500>`, 
+                    embeds: [embed] 
+                }).catch(() => {});
 
-            // 3. تعديل رسالة البوت لتأكيد النجاح
-            await interaction.editReply({ content: `تم تحذير ${target.username} بنجاح! <a:emoji_2:1519115296961466500>` });
-
-        } catch (error) {
-            // في حالة حدوث أي خطأ، نغير الإيموجي لعلامة الخطأ ونطبع الخطأ في الكونسول فقط
-            console.error("Error in warning command:", error);
-            await interaction.editReply({ content: `<a:emoji_3:1519115319040413859> حدث خطأ أثناء التحذير، يرجى المحاولة لاحقاً.` }).catch(() => {});
-        }
-    }, 5000); // 5 ثوانٍ
-}
-
+                await interaction.editReply({ content: `تم تحذير ${target.username} بنجاح! <a:emoji_2:1519115296961466500>` });
+            } catch (error) {
+                console.error("Error in warning command:", error);
+                await interaction.editReply({ content: `<a:emoji_3:1519115319040413859> حدث خطأ أثناء التحذير.` }).catch(() => {});
+            }
+        }, 5000);
+    }
 
     if (interaction.commandName === 'شيل') {
-    if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
-    
-    const target = interaction.options.getUser('الشخص');
-    
-    // 1. بداية التحميل (الرسالة الأولى)
-    await interaction.reply({ content: "<a:emoji_2:1519112126445256744> جاري التحميل...", fetchReply: true });
+        if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
+        const target = interaction.options.getUser('الشخص');
+        await interaction.reply({ content: "<a:emoji_2:1519112126445256744> جاري التحميل...", fetchReply: true });
 
-    // 2. الانتظار لمدة 5 ثواني ثم الانتقال لمرحلة "جاري الفحص"
-    setTimeout(async () => {
-        try {
-            await interaction.editReply({ content: "<a:emoji_4:1519119683394076824> جاري فحص البيانات... جاري مسح جميع تحذيرات هذا الشخص" });
-
-            // 3. تنفيذ عملية المسح الفعلية بعد فترة وجيزة (مثلاً ثانيتين) لإعطاء وقت للقراءة
-            setTimeout(async () => {
-                try {
+        setTimeout(async () => {
+            try {
+                await interaction.editReply({ content: "<a:emoji_4:1519119683394076824> جاري فحص البيانات... جاري مسح جميع تحذيرات هذا الشخص" });
+                setTimeout(async () => {
                     warnings[target.id] = []; 
                     saveWarnings();
-                    
-                    // الرسالة النهائية
                     await interaction.editReply({ content: `تم مسح جميع التحذيرات بنجاح! <a:emoji_5:1519120305061236909>` });
-                } catch (err) {
-                    throw err;
-                }
-            }, 2000);
-
-        } catch (error) {
-            console.error("Error in 'شيل' command:", error);
-            await interaction.editReply({ content: "<a:emoji_3:1519115319040413859> حدث خطأ أثناء تنفيذ الأمر." }).catch(() => {});
-        }
-    }, 5000); // الانتظار الأولي 5 ثواني
-}
-
+                }, 2000);
+            } catch (error) {
+                console.error("Error in 'شيل' command:", error);
+                await interaction.editReply({ content: "<a:emoji_3:1519115319040413859> حدث خطأ أثناء تنفيذ الأمر." }).catch(() => {});
+            }
+        }, 5000);
+    }
 });
 
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (message.content.includes("السلام عليكم")) message.reply("وعليكم السلام ارحب 👋");
     
-        if (message.content.startsWith("-تعال")) {
+    if (message.content.startsWith("-تعال")) {
         const target = message.mentions.members.first();
         const everyone = message.mentions.everyone || message.content.includes("@here");
 
-        // التحقق إذا كان الطلب منشن للكل
         if (everyone) {
-            // التحقق من صلاحية الإداري
-            if (!message.member.permissions.has("ADMINISTRATOR") && !message.member.permissions.has("MANAGE_MESSAGES")) {
-                return message.reply("عذراً، هذه الخاصية للإداريين فقط! ⚠️");
-            }
-
+            if (!message.member.permissions.has("ADMINISTRATOR") && !message.member.permissions.has("MANAGE_MESSAGES")) return message.reply("عذراً، هذه الخاصية للإداريين فقط! ⚠️");
             message.reply("جاري إرسال الطلب للجميع في الخاص... 📩");
-
-            // إرسال رسالة خاصة لكل عضو في السيرفر
             message.guild.members.fetch().then(members => {
                 members.forEach(m => {
                     if (!m.user.bot) {
                         m.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗`)
-                         .catch(() => {}); // نتجاهل الأخطاء إذا كان العضو مغلق الخاص
+                         .then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000))
+                         .catch(() => {});
                     }
                 });
             });
-        } 
-        // إذا كان منشن لشخص واحد فقط
-        else if (target) {
+        } else if (target) {
             target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: <@${target.id}>`)
-                .then(() => message.reply("تم إرسال الطلب للشخص في الخاص 📩"))
+                .then(msg => {
+                    setTimeout(() => msg.delete().catch(() => {}), 120000);
+                    message.reply("تم إرسال الطلب للشخص في الخاص 📩");
+                })
                 .catch(() => message.reply("عذراً، لم أستطع الإرسال، ربما الشخص مغلق الرسائل الخاصة 🔒"));
-        } 
-        // إذا لم يتم منشن أحد
-        else {
+        } else {
             message.reply("يرجى عمل منشن للشخص أو للجميع! ⚠️");
         }
     }
 
     if (message.content.startsWith("-تحذيرات")) {
-    // 1. إرسال رسالة التحميل أولاً
-    const loadingMsg = await message.reply("<a:emoji_7:1519294675180195910> جاري جلب السجلات، يرجى الانتظار...");
-
-    // 2. تأخير لمدة 2000 ميلي ثانية (ثانيتين)
-    setTimeout(async () => {
-        try {
-            const target = message.mentions.users.first();
-            
-            if (target) {
-                const list = (warnings[target.id] && warnings[target.id].length > 0) 
-                    ? warnings[target.id].map((r, i) => `${i + 1}- ${r.reason || r}`).join('\n') 
-                    : "لا يوجد تحذيرات.";
-                
-                // تعديل رسالة التحميل بالنتيجة
-                await loadingMsg.edit(`قائمة تحذيرات ${target.username}:\n${list} 📋`);
-            } else {
-                const recentWarnings = Object.entries(warnings)
-                    .slice(-10)
-                    .map(([id, data], i) => {
-                        const lastWarning = data && data.length > 0 ? data[data.length - 1] : null;
-                        const adminName = lastWarning && lastWarning.adminName ? lastWarning.adminName : "تم حذف التحذير";
-                        return `${i + 1}- العضو: <@${id}> | بواسطة: ${adminName}`;
-                    })
-                    .join('\n');
-                
-                // تعديل رسالة التحميل بالنتيجة
-                await loadingMsg.edit(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
+        const loadingMsg = await message.reply("<a:emoji_7:1519294675180195910> جاري جلب السجلات، يرجى الانتظار...");
+        setTimeout(async () => {
+            try {
+                const target = message.mentions.users.first();
+                if (target) {
+                    const list = (warnings[target.id] && warnings[target.id].length > 0) 
+                        ? warnings[target.id].map((r, i) => `${i + 1}- ${r.reason || r}`).join('\n') 
+                        : "لا يوجد تحذيرات.";
+                    await loadingMsg.edit(`قائمة تحذيرات ${target.username}:\n${list} 📋`);
+                } else {
+                    const recentWarnings = Object.entries(warnings)
+                        .slice(-10)
+                        .map(([id, data], i) => {
+                            const lastWarning = data && data.length > 0 ? data[data.length - 1] : null;
+                            const adminName = lastWarning && lastWarning.adminName ? lastWarning.adminName : "تم حذف التحذير";
+                            return `${i + 1}- العضو: <@${id}> | بواسطة: ${adminName}`;
+                        })
+                        .join('\n');
+                    await loadingMsg.edit(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
+                }
+            } catch (error) {
+                console.error("Error in -تحذيرات:", error);
+                await loadingMsg.edit("<a:emoji_3:1519115319040413859> حدث خطأ أثناء جلب البيانات.").catch(() => {});
             }
-        } catch (error) {
-            console.error("Error in -تحذيرات:", error);
-            // في حال حدوث خطأ، نحدث الرسالة لتنبيهك
-            await loadingMsg.edit("<a:emoji_3:1519115319040413859> حدث خطأ أثناء جلب البيانات.").catch(() => {});
-        }
-    }, 2000); // 2000 ميلي ثانية = ثانيتين
-}
-
-
-    if (message.mentions.has(client.user) && !message.mentions.everyone && !message.mentions.here) {
-        message.react('👀');
+        }, 2000);
     }
 });
 
