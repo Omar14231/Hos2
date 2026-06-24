@@ -26,9 +26,7 @@ function hasPermission(member) {
 }
 
 client.on('ready', async () => {
-    // حالة النقطة
     client.user.setActivity('...', { type: ActivityType.Watching });
-    
     const commands = [
         new SlashCommandBuilder().setName('تحذير').setDescription('تحذير عضو')
             .addUserOption(o => o.setName('الشخص').setDescription('الشخص المراد تحذيره').setRequired(true))
@@ -43,11 +41,10 @@ client.on('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
 });
 
-// متغير لتتبع حالة المراقبة
 const watchList = new Set();
 
 client.on('messageDelete', async message => {
-    if (message.author.bot || !message.guild) return;
+    if (message.author?.bot || !message.guild) return;
     if (watchList.has(message.guild.id)) {
         const embed = new EmbedBuilder()
             .setColor(0xFF0000)
@@ -55,10 +52,10 @@ client.on('messageDelete', async message => {
             .addFields(
                 { name: "العضو:", value: `${message.author.tag}`, inline: true },
                 { name: "الروم:", value: `${message.channel.name}`, inline: true },
-                { name: "الرسالة:", value: `${message.content || "رسالة فارغة"}` }
+                { name: "الرسالة:", value: `${message.content || "لا يوجد نص"}` }
             )
             .setTimestamp();
-        message.channel.send({ embeds: [embed] });
+        message.channel.send({ embeds: [embed] }).catch(() => {});
     }
 });
 
@@ -83,34 +80,14 @@ client.on('interactionCreate', async interaction => {
         const reason = interaction.options.getString('السبب');
         const sender = interaction.user;
 
-        await interaction.reply({ content: "<a:emoji_7:1519294675180195910> جاري معالجة التحذير...", fetchReply: true });
-
+        await interaction.reply({ content: "جاري المعالجة...", fetchReply: true });
         setTimeout(async () => {
-            try {
-                if (!warnings[target.id]) warnings[target.id] = [];
-                warnings[target.id].push({ reason: reason, adminName: sender.username });
-                saveWarnings();
-
-                const embed = new EmbedBuilder()
-                    .setColor(0xFF0000)
-                    .setTitle(`<a:emoji_2:1519115296961466500> تحذير شديد اللهجة <a:emoji_2:1519115296961466500>`)
-                    .setDescription(`**تم تحذيرك من قبل الإدارة!**\n\n**الشخص المسؤول:** ${sender}\n**السبب:** \`${reason}\``)
-                    .setTimestamp();
-
-                await target.send({ content: `<a:emoji_2:1519115296961466500> <@${target.id}> **عليك الانتباه!**`, embeds: [embed] }).catch(() => {});
-                await interaction.editReply({ content: `تم تحذير ${target.username} بنجاح!` });
-            } catch (e) { console.error(e); }
-        }, 5000);
-    }
-
-    if (interaction.commandName === 'شيل') {
-        if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
-        const target = interaction.options.getUser('الشخص');
-        await interaction.reply({ content: "جاري المسح...", fetchReply: true });
-        setTimeout(async () => {
-            warnings[target.id] = []; 
+            if (!warnings[target.id]) warnings[target.id] = [];
+            warnings[target.id].push({ reason: reason, adminName: sender.username });
             saveWarnings();
-            await interaction.editReply({ content: `تم مسح تحذيرات ${target.username} بنجاح!` });
+            const embed = new EmbedBuilder().setColor(0xFF0000).setTitle("تحذير").setDescription(`السبب: ${reason}`);
+            await target.send({ content: "لديك تحذير:", embeds: [embed] }).catch(() => {});
+            await interaction.editReply({ content: "تم التحذير بنجاح." });
         }, 5000);
     }
 });
@@ -121,10 +98,10 @@ client.on('messageCreate', async message => {
     if (message.content === "!الحذف" && message.author.id === OWNER_ID) {
         if (watchList.has(message.guild.id)) {
             watchList.delete(message.guild.id);
-            message.reply("تم إيقاف مراقبة الحذف.");
+            message.reply("تم إيقاف المراقبة.");
         } else {
             watchList.add(message.guild.id);
-            message.reply("تم تفعيل مراقبة الحذف.");
+            message.reply("تم تفعيل المراقبة.");
         }
     }
 
@@ -137,52 +114,10 @@ client.on('messageCreate', async message => {
     if (message.content.startsWith("-تعال")) {
         const target = message.mentions.members.first();
         if (target) {
-            target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url}`)
+            target.send(`يطلبك ${message.author.username} في الروم: ${message.channel.name}`)
                 .then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000))
                 .catch(() => message.reply("لم أستطع الإرسال."));
         }
-    }
-
-    if (message.content.startsWith("-تحذيرات")) {
-        const target = message.mentions.users.first();
-        const list = target ? (warnings[target.id]?.map((r, i) => `${i + 1}- ${r.reason}`).join('\n') || "لا يوجد") : "استخدم -تحذيرات @عضو";
-        message.reply(`التحذيرات:\n${list}`);
-    }
-});
-
-client.login(process.env.DISCORD_TOKEN);
-                .catch(() => message.reply("عذراً، لم أستطع الإرسال، ربما الشخص مغلق الرسائل الخاصة 🔒"));
-        } else {
-            message.reply("يرجى عمل منشن للشخص أو للجميع! ⚠️");
-        }
-    }
-
-    if (message.content.startsWith("-تحذيرات")) {
-        const loadingMsg = await message.reply("<a:emoji_7:1519294675180195910> جاري جلب السجلات، يرجى الانتظار...");
-        setTimeout(async () => {
-            try {
-                const target = message.mentions.users.first();
-                if (target) {
-                    const list = (warnings[target.id] && warnings[target.id].length > 0) 
-                        ? warnings[target.id].map((r, i) => `${i + 1}- ${r.reason || r}`).join('\n') 
-                        : "لا يوجد تحذيرات.";
-                    await loadingMsg.edit(`قائمة تحذيرات ${target.username}:\n${list} 📋`);
-                } else {
-                    const recentWarnings = Object.entries(warnings)
-                        .slice(-10)
-                        .map(([id, data], i) => {
-                            const lastWarning = data && data.length > 0 ? data[data.length - 1] : null;
-                            const adminName = lastWarning && lastWarning.adminName ? lastWarning.adminName : "تم حذف التحذير";
-                            return `${i + 1}- العضو: <@${id}> | بواسطة: ${adminName}`;
-                        })
-                        .join('\n');
-                    await loadingMsg.edit(`آخر 10 أشخاص تم تحذيرهم:\n${recentWarnings || "لا توجد تحذيرات حالياً."} 📋`);
-                }
-            } catch (error) {
-                console.error("Error in -تحذيرات:", error);
-                await loadingMsg.edit("<a:emoji_3:1519115319040413859> حدث خطأ أثناء جلب البيانات.").catch(() => {});
-            }
-        }, 2000);
     }
 });
 
