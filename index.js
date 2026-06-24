@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType, AuditLogEvent } = require('discord.js');
 const http = require('http');
 const fs = require('fs');
 
@@ -44,79 +44,67 @@ client.on('ready', async () => {
 const watchList = new Set();
 
 client.on('messageDelete', async message => {
-    if (message.author?.bot || !message.guild) return;
+    if (!message.author || message.author.bot || !message.guild) return;
     if (watchList.has(message.guild.id)) {
-        const embed = new EmbedBuilder()
-            .setColor(0xFF0000)
-            .setTitle("⚠️ تم حذف رسالة")
-            .addFields(
-                { name: "العضو:", value: `${message.author.tag}`, inline: true },
-                { name: "الروم:", value: `${message.channel.name}`, inline: true },
-                { name: "الرسالة:", value: `${message.content || "لا يوجد نص"}` }
-            )
-            .setTimestamp();
-        message.channel.send({ embeds: [embed] }).catch(() => {});
+        try {
+            const auditLogs = await message.guild.fetchAuditLogs({ type: AuditLogEvent.MessageDelete, limit: 1 });
+            const entry = auditLogs.entries.first();
+            const deleter = (entry && entry.target.id === message.author.id && entry.createdTimestamp > Date.now() - 5000) ? entry.executor : message.author;
+            
+            const embed = new EmbedBuilder()
+                .setColor(0xFF0000)
+                .setTitle("⚠️ تم حذف رسالة")
+                .setDescription(`<@${deleter.id}> قام بحذف رسالة <@${message.author.id}> في روم <#${message.channel.id}>`)
+                .addFields({ name: "نص الرسالة المحذوفة:", value: message.content || "رسالة فارغة" })
+                .setTimestamp();
+            
+            message.channel.send({ content: `<@${deleter.id}> <@${message.author.id}>`, embeds: [embed] });
+        } catch (e) { console.error(e); }
     }
 });
 
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
-
     if (interaction.commandName === 'منشن') {
         if (interaction.user.id !== OWNER_ID) return interaction.reply({ content: "للمالك فقط!", ephemeral: true });
         await interaction.reply({ content: "جاري الإرسال...", ephemeral: true });
         interaction.guild.members.cache.forEach(async m => { 
-            if (!m.user.bot) {
-                m.send(interaction.options.getString('وصف'))
-                .then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000))
-                .catch(() => {});
-            }
+            if (!m.user.bot) m.send(interaction.options.getString('وصف')).then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000)).catch(() => {});
         });
     }
-
     if (interaction.commandName === 'تحذير') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
         const target = interaction.options.getUser('الشخص');
         const reason = interaction.options.getString('السبب');
-        const sender = interaction.user;
-
-        await interaction.reply({ content: "جاري المعالجة...", fetchReply: true });
-        setTimeout(async () => {
-            if (!warnings[target.id]) warnings[target.id] = [];
-            warnings[target.id].push({ reason: reason, adminName: sender.username });
-            saveWarnings();
-            const embed = new EmbedBuilder().setColor(0xFF0000).setTitle("تحذير").setDescription(`السبب: ${reason}`);
-            await target.send({ content: "لديك تحذير:", embeds: [embed] }).catch(() => {});
-            await interaction.editReply({ content: "تم التحذير بنجاح." });
-        }, 5000);
+        if (!warnings[target.id]) warnings[target.id] = [];
+        warnings[target.id].push({ reason, adminName: interaction.user.username });
+        saveWarnings();
+        await target.send({ content: `تم تحذيرك! السبب: ${reason}` }).catch(() => {});
+        await interaction.reply({ content: `تم تحذير ${target.username}`, ephemeral: true });
+    }
+    if (interaction.commandName === 'شيل') {
+        if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
+        const target = interaction.options.getUser('الشخص');
+        warnings[target.id] = [];
+        saveWarnings();
+        await interaction.reply({ content: `تم مسح تحذيرات ${target.username}`, ephemeral: true });
     }
 });
 
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
-
     if (message.content === "!الحذف" && message.author.id === OWNER_ID) {
-        if (watchList.has(message.guild.id)) {
-            watchList.delete(message.guild.id);
-            message.reply("تم إيقاف المراقبة.");
-        } else {
-            watchList.add(message.guild.id);
-            message.reply("تم تفعيل المراقبة.");
-        }
+        if (watchList.has(message.guild.id)) { watchList.delete(message.guild.id); message.reply("تم إيقاف المراقبة."); }
+        else { watchList.add(message.guild.id); message.reply("تم تفعيل المراقبة."); }
     }
-
     if (message.content === "امسح" && !message.guild) {
         const fetched = await message.channel.messages.fetch({ limit: 100 });
-        const botMessages = fetched.filter(m => m.author.id === client.user.id);
-        botMessages.forEach(m => m.delete().catch(() => {}));
+        fetched.filter(m => m.author.id === client.user.id).forEach(m => m.delete().catch(() => {}));
     }
-
     if (message.content.startsWith("-تعال")) {
         const target = message.mentions.members.first();
         if (target) {
-            target.send(`يطلبك ${message.author.username} في الروم: ${message.channel.name}`)
-                .then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000))
-                .catch(() => message.reply("لم أستطع الإرسال."));
+            target.send(`يطلبك ${message.author.username} في الروم: ${message.channel.name}`).then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000)).catch(() => message.reply("لا يمكن المراسلة."));
         }
     }
 });
