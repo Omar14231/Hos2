@@ -187,7 +187,7 @@ client.on('messageCreate', async message => {
                     .slice(-10)
                     .map(([id, data], i) => {
                         const lastWarning = data && data.length > 0 ? data[data.length - 1] : null;
-                        const adminName = lastWarning && lastWarning.adminName ? lastWarning.adminName : "غير معروف";
+                        const adminName = lastWarning && lastWarning.adminName ? lastWarning.adminName : "تم حذف التحذير";
                         return `${i + 1}- العضو: <@${id}> | بواسطة: ${adminName}`;
                     })
                     .join('\n');
