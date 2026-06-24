@@ -53,12 +53,19 @@ client.on('messageDelete', async message => {
             
             const embed = new EmbedBuilder()
                 .setColor(0xFF0000)
-                .setTitle("⚠️ تم حذف رسالة")
-                .setDescription(`<@${deleter.id}> قام بحذف رسالة <@${message.author.id}> في روم <#${message.channel.id}>`)
-                .addFields({ name: "نص الرسالة المحذوفة:", value: message.content || "رسالة فارغة" })
+                .setTitle("🚨 تم كشف عملية حذف")
+                .setDescription(`
+**الشخص الذي حذف :** <@${deleter.id}>
+**صاحب الرسالة :** <@${message.author.id}>
+
+**الرسالة التي حُذفت :**
+> ${message.content || "رسالة فارغة (صورة أو ملف)"}
+
+**في روم :** <#${message.channel.id}>
+                `)
                 .setTimestamp();
             
-            message.channel.send({ content: `<@${deleter.id}> <@${message.author.id}>`, embeds: [embed] });
+            message.channel.send({ content: `<@${deleter.id}>`, embeds: [embed] });
         } catch (e) { console.error(e); }
     }
 });
@@ -79,15 +86,15 @@ client.on('interactionCreate', async interaction => {
         if (!warnings[target.id]) warnings[target.id] = [];
         warnings[target.id].push({ reason, adminName: interaction.user.username });
         saveWarnings();
-        await target.send({ content: `تم تحذيرك! السبب: ${reason}` }).catch(() => {});
-        await interaction.reply({ content: `تم تحذير ${target.username}`, ephemeral: true });
+        await target.send({ content: `⚠️ تم تحذيرك من قبل الإدارة!\nالسبب: ${reason}` }).catch(() => {});
+        await interaction.reply({ content: `تم تحذير ${target.username} بنجاح.`, ephemeral: true });
     }
     if (interaction.commandName === 'شيل') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
         const target = interaction.options.getUser('الشخص');
         warnings[target.id] = [];
         saveWarnings();
-        await interaction.reply({ content: `تم مسح تحذيرات ${target.username}`, ephemeral: true });
+        await interaction.reply({ content: `تم مسح تحذيرات ${target.username}.`, ephemeral: true });
     }
 });
 
@@ -95,7 +102,7 @@ client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (message.content === "!الحذف" && message.author.id === OWNER_ID) {
         if (watchList.has(message.guild.id)) { watchList.delete(message.guild.id); message.reply("تم إيقاف المراقبة."); }
-        else { watchList.add(message.guild.id); message.reply("تم تفعيل المراقبة."); }
+        else { watchList.add(message.guild.id); message.reply("تم تفعيل مراقبة الحذف."); }
     }
     if (message.content === "امسح" && !message.guild) {
         const fetched = await message.channel.messages.fetch({ limit: 100 });
