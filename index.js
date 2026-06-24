@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType, AuditLogEvent } = require('discord.js');
 const http = require('http');
 const fs = require('fs');
 
@@ -9,8 +9,9 @@ const client = new Client({
 });
 
 const OWNER_ID = "1344009623887151155";
+const AUTHORIZED_USER = "1306034100544737461";
 const ADMIN_ROLES = ["1508200281429770412", "1509306208517881866", "1509740495486587073", "1517511232867930112"];
-const watchList = new Set(); // لتخزين رومات المراقبة
+const watchList = new Set();
 let warnings = {};
 
 if (fs.existsSync('./warnings.json')) {
@@ -21,9 +22,9 @@ function saveWarnings() { fs.writeFileSync('./warnings.json', JSON.stringify(war
 function hasPermission(member) { return member.id === OWNER_ID || member.roles.cache.some(r => ADMIN_ROLES.includes(r.id)); }
 
 client.on('ready', async () => {
-    // حالة التويتش
+    // 1. حالة التويتش
     client.user.setActivity('بث مباشر الآن!', { type: ActivityType.Streaming, url: 'https://www.twitch.tv/adsqwertt11' });
-    
+
     const commands = [
         new SlashCommandBuilder().setName('تحذير').setDescription('تحذير عضو')
             .addUserOption(o => o.setName('الشخص').setDescription('الشخص المراد تحذيره').setRequired(true))
@@ -33,30 +34,34 @@ client.on('ready', async () => {
     ];
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-    console.log(`Bot is ready: ${client.user.tag}`);
+    console.log(`Bot is Ready: ${client.user.tag}`);
 });
 
-// نظام رصد الحذف الفوري
+// 2. نظام رصد الحذف الفوري
 client.on('messageDelete', async message => {
     if (!message.author || message.author.bot || !watchList.has(message.channel.id)) return;
+    try {
+        const auditLogs = await message.guild.fetchAuditLogs({ type: AuditLogEvent.MessageDelete, limit: 1 });
+        const entry = auditLogs.entries.first();
+        const deleter = (entry && entry.target.id === message.author.id && entry.createdTimestamp > Date.now() - 5000) ? entry.executor : message.author;
 
-    const embed = new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle("🚨 تم كشف عملية حذف")
-        .setDescription(`
-**الشخص الذي حذف :** <@${message.author.id}>
+        const embed = new EmbedBuilder()
+            .setColor(0xFF0000)
+            .setTitle("🚨 تم كشف عملية حذف")
+            .setDescription(`
+**الشخص الذي حذف :** <@${deleter.id}>
+**الشخص الذي انحذفت رسالته :** <@${message.author.id}>
+**في روم :** <#${message.channel.id}>
 
 **الرسالة التي حُذفت :**
 > ${message.content || "رسالة فارغة"}
-
-**في روم :** <#${message.channel.id}>
-        `)
-        .setTimestamp();
-    
-    message.channel.send({ content: `<@${message.author.id}>`, embeds: [embed] }).catch(() => {});
+            `)
+            .setTimestamp();
+        message.channel.send({ content: `<@${deleter.id}> <@${message.author.id}>`, embeds: [embed] });
+    } catch (e) { console.error(e); }
 });
 
-// أوامر السلاش
+// 3. أوامر السلاش
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
     if (interaction.commandName === 'تحذير') {
@@ -78,12 +83,11 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// أوامر النص
+// 4. أوامر النص (!الحذف، -تعال، امسح)
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
-    // تفعيل/إيقاف المراقبة
-    if (message.content === "!الحذف" && message.author.id === OWNER_ID) {
+    if (message.content === "!الحذف" && (message.author.id === OWNER_ID || message.author.id === AUTHORIZED_USER)) {
         if (watchList.has(message.channel.id)) {
             watchList.delete(message.channel.id);
             message.reply("تم إيقاف المراقبة في هذا الروم.");
@@ -93,19 +97,17 @@ client.on('messageCreate', async message => {
         }
     }
 
-    // أمر المسح في الخاص
     if (message.content === "امسح" && !message.guild) {
         const fetched = await message.channel.messages.fetch({ limit: 100 });
         fetched.filter(m => m.author.id === client.user.id).forEach(m => m.delete().catch(() => {}));
     }
 
-    // أمر -تعال
     if (message.content.startsWith("-تعال")) {
         const target = message.mentions.members.first();
         if (target) {
             target.send(`يطلبك ${message.author.username} في الروم: ${message.channel.name}`)
-                .then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000))
-                .catch(() => message.reply("تعذر الإرسال للخاص."));
+                .then(() => message.reply("تم الإرسال للخاص 📩"))
+                .catch(() => message.reply("تعذر الإرسال."));
         }
     }
 });
