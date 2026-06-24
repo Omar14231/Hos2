@@ -27,7 +27,7 @@ function hasPermission(member) {
 
 client.on('ready', async () => {
     // حالة التويتش
-    client.user.setActivity('بث مباشر الآن!', {
+    client.user.setActivity('.', {
         type: 1, 
         url: 'https://www.twitch.tv/adsqwertt11'
     });
