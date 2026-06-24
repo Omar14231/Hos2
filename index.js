@@ -57,7 +57,7 @@ client.on('interactionCreate', async interaction => {
     const sender = interaction.user;
 
     // 1. إرسال رد التحميل (استخدام fetchReply لجلب الرسالة وتعديلها لاحقاً)
-    await interaction.reply({ content: "<a:emoji_2:1519112126445256744> جاري معالجة التحذير...", fetchReply: true });
+    await interaction.reply({ content: "<a:emoji_7:1519294675180195910> جاري معالجة التحذير...", fetchReply: true });
 
     // 2. استخدام setTimeout لانتظار 5 ثوانٍ مع معالجة الأخطاء لضمان عدم توقف البوت
     setTimeout(async () => {
@@ -168,7 +168,7 @@ client.on('messageCreate', async message => {
 
     if (message.content.startsWith("-تحذيرات")) {
     // 1. إرسال رسالة التحميل أولاً
-    const loadingMsg = await message.reply("<a:emoji_2:1519112126445256744> جاري جلب السجلات، يرجى الانتظار...");
+    const loadingMsg = await message.reply("<a:emoji_7:1519294675180195910> جاري جلب السجلات، يرجى الانتظار...");
 
     // 2. تأخير لمدة 2000 ميلي ثانية (ثانيتين)
     setTimeout(async () => {
