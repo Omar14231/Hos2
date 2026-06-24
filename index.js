@@ -26,6 +26,12 @@ function hasPermission(member) {
 }
 
 client.on('ready', async () => {
+    // حالة التويتش
+    client.user.setActivity('بث مباشر الآن!', {
+        type: 1, 
+        url: 'https://www.twitch.tv/adsqwertt11'
+    });
+
     const commands = [
         new SlashCommandBuilder().setName('تحذير').setDescription('تحذير عضو')
             .addUserOption(o => o.setName('الشخص').setDescription('الشخص المراد تحذيره').setRequired(true))
@@ -48,9 +54,9 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: "جاري الإرسال...", ephemeral: true });
         interaction.guild.members.cache.forEach(async m => { 
             if (!m.user.bot) {
-                m.send(interaction.options.getString('وصف')).then(msg => {
-                    setTimeout(() => msg.delete().catch(() => {}), 120000);
-                }).catch(() => {});
+                m.send(interaction.options.getString('وصف'))
+                .then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000))
+                .catch(() => {});
             }
         });
     }
