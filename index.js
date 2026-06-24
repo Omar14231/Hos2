@@ -11,7 +11,9 @@ const client = new Client({
 const OWNER_ID = "1344009623887151155";
 const AUTHORIZED_USER = "1306034100544737461";
 const ADMIN_ROLES = ["1508200281429770412", "1509306208517881866", "1509740495486587073", "1517511232867930112"];
-const watchList = new Set();
+
+// نظام مراقبة مفتوح لجميع الرومات عند تفعيل الأمر
+let isWatching = false;
 let warnings = {};
 
 if (fs.existsSync('./warnings.json')) {
@@ -22,9 +24,8 @@ function saveWarnings() { fs.writeFileSync('./warnings.json', JSON.stringify(war
 function hasPermission(member) { return member.id === OWNER_ID || member.roles.cache.some(r => ADMIN_ROLES.includes(r.id)); }
 
 client.on('ready', async () => {
-    // 1. حالة التويتش
     client.user.setActivity('بث مباشر الآن!', { type: ActivityType.Streaming, url: 'https://www.twitch.tv/adsqwertt11' });
-
+    
     const commands = [
         new SlashCommandBuilder().setName('تحذير').setDescription('تحذير عضو')
             .addUserOption(o => o.setName('الشخص').setDescription('الشخص المراد تحذيره').setRequired(true))
@@ -37,12 +38,14 @@ client.on('ready', async () => {
     console.log(`Bot is Ready: ${client.user.tag}`);
 });
 
-// 2. نظام رصد الحذف الفوري
+// نظام رصد الحذف الفوري (لا يحتاج انتظار - سرعة قصوى)
 client.on('messageDelete', async message => {
-    if (!message.author || message.author.bot || !watchList.has(message.channel.id)) return;
+    if (!message.author || message.author.bot || !isWatching) return;
+    
+    // تنفيذ سريع لكل عملية حذف في أي روم
     try {
-        const auditLogs = await message.guild.fetchAuditLogs({ type: AuditLogEvent.MessageDelete, limit: 1 });
-        const entry = auditLogs.entries.first();
+        const auditLogs = await message.guild.fetchAuditLogs({ type: AuditLogEvent.MessageDelete, limit: 1 }).catch(() => {});
+        const entry = auditLogs?.entries.first();
         const deleter = (entry && entry.target.id === message.author.id && entry.createdTimestamp > Date.now() - 5000) ? entry.executor : message.author;
 
         const embed = new EmbedBuilder()
@@ -57,11 +60,12 @@ client.on('messageDelete', async message => {
 > ${message.content || "رسالة فارغة"}
             `)
             .setTimestamp();
-        message.channel.send({ content: `<@${deleter.id}> <@${message.author.id}>`, embeds: [embed] });
-    } catch (e) { console.error(e); }
+        
+        message.channel.send({ content: `<@${deleter.id}> <@${message.author.id}>`, embeds: [embed] }).catch(() => {});
+    } catch (e) { console.error("Error in fast delete log:", e); }
 });
 
-// 3. أوامر السلاش
+// أوامر السلاش
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
     if (interaction.commandName === 'تحذير') {
@@ -83,31 +87,29 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// 4. أوامر النص (!الحذف، -تعال، امسح)
+// أوامر النص
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
+    // تفعيل المراقبة في كل السيرفر (بدل الروم الواحد)
     if (message.content === "!الحذف" && (message.author.id === OWNER_ID || message.author.id === AUTHORIZED_USER)) {
-        if (watchList.has(message.channel.id)) {
-            watchList.delete(message.channel.id);
-            message.reply("تم إيقاف المراقبة في هذا الروم.");
-        } else {
-            watchList.add(message.channel.id);
-            message.reply("تم تفعيل المراقبة في هذا الروم.");
-        }
+        isWatching = !isWatching;
+        message.reply(isWatching ? "✅ تم تفعيل المراقبة الفورية في جميع رومات السيرفر." : "❌ تم إيقاف المراقبة.");
     }
 
+    // أمر المسح في الخاص (لرسائل البوت فقط)
     if (message.content === "امسح" && !message.guild) {
         const fetched = await message.channel.messages.fetch({ limit: 100 });
         fetched.filter(m => m.author.id === client.user.id).forEach(m => m.delete().catch(() => {}));
     }
 
+    // أمر -تعال
     if (message.content.startsWith("-تعال")) {
         const target = message.mentions.members.first();
         if (target) {
             target.send(`يطلبك ${message.author.username} في الروم: ${message.channel.name}`)
                 .then(() => message.reply("تم الإرسال للخاص 📩"))
-                .catch(() => message.reply("تعذر الإرسال."));
+                .catch(() => message.reply("تعذر الإرسال للخاص."));
         }
     }
 });
