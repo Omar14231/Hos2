@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType } = require('discord.js');
 const http = require('http');
 const fs = require('fs');
 
@@ -26,12 +26,9 @@ function hasPermission(member) {
 }
 
 client.on('ready', async () => {
-    // حالة التويتش
-    client.user.setActivity('.', {
-        type: 1, 
-        url: 'https://www.twitch.tv/adsqwertt11'
-    });
-
+    // حالة النقطة
+    client.user.setActivity('...', { type: ActivityType.Watching });
+    
     const commands = [
         new SlashCommandBuilder().setName('تحذير').setDescription('تحذير عضو')
             .addUserOption(o => o.setName('الشخص').setDescription('الشخص المراد تحذيره').setRequired(true))
@@ -44,6 +41,25 @@ client.on('ready', async () => {
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log(`Logged in as ${client.user.tag}`);
+});
+
+// متغير لتتبع حالة المراقبة
+const watchList = new Set();
+
+client.on('messageDelete', async message => {
+    if (message.author.bot || !message.guild) return;
+    if (watchList.has(message.guild.id)) {
+        const embed = new EmbedBuilder()
+            .setColor(0xFF0000)
+            .setTitle("⚠️ تم حذف رسالة")
+            .addFields(
+                { name: "العضو:", value: `${message.author.tag}`, inline: true },
+                { name: "الروم:", value: `${message.channel.name}`, inline: true },
+                { name: "الرسالة:", value: `${message.content || "رسالة فارغة"}` }
+            )
+            .setTimestamp();
+        message.channel.send({ embeds: [embed] });
+    }
 });
 
 client.on('interactionCreate', async interaction => {
@@ -78,70 +94,63 @@ client.on('interactionCreate', async interaction => {
                 const embed = new EmbedBuilder()
                     .setColor(0xFF0000)
                     .setTitle(`<a:emoji_2:1519115296961466500> تحذير شديد اللهجة <a:emoji_2:1519115296961466500>`)
-                    .setDescription(`**تم تحذيرك من قبل الإدارة!**\n\n**الشخص المسؤول:** ${sender}\n**السبب:** \`${reason}\`\n\n**نصيحة:** التزم بالقوانين لتجنب العقوبات القادمة!`)
-                    .setTimestamp()
-                    .setFooter({ text: 'نظام الأمان التلقائي' });
+                    .setDescription(`**تم تحذيرك من قبل الإدارة!**\n\n**الشخص المسؤول:** ${sender}\n**السبب:** \`${reason}\``)
+                    .setTimestamp();
 
-                await target.send({ 
-                    content: `<a:emoji_2:1519115296961466500> <@${target.id}> **عليك الانتباه!** <a:emoji_2:1519115296961466500>`, 
-                    embeds: [embed] 
-                }).catch(() => {});
-
-                await interaction.editReply({ content: `تم تحذير ${target.username} بنجاح! <a:emoji_2:1519115296961466500>` });
-            } catch (error) {
-                console.error("Error in warning command:", error);
-                await interaction.editReply({ content: `<a:emoji_3:1519115319040413859> حدث خطأ أثناء التحذير.` }).catch(() => {});
-            }
+                await target.send({ content: `<a:emoji_2:1519115296961466500> <@${target.id}> **عليك الانتباه!**`, embeds: [embed] }).catch(() => {});
+                await interaction.editReply({ content: `تم تحذير ${target.username} بنجاح!` });
+            } catch (e) { console.error(e); }
         }, 5000);
     }
 
     if (interaction.commandName === 'شيل') {
         if (!hasPermission(interaction.member)) return interaction.reply({ content: "ليس لديك صلاحية!", ephemeral: true });
         const target = interaction.options.getUser('الشخص');
-        await interaction.reply({ content: "<a:emoji_2:1519112126445256744> جاري التحميل...", fetchReply: true });
-
+        await interaction.reply({ content: "جاري المسح...", fetchReply: true });
         setTimeout(async () => {
-            try {
-                await interaction.editReply({ content: "<a:emoji_4:1519119683394076824> جاري فحص البيانات... جاري مسح جميع تحذيرات هذا الشخص" });
-                setTimeout(async () => {
-                    warnings[target.id] = []; 
-                    saveWarnings();
-                    await interaction.editReply({ content: `تم مسح جميع التحذيرات بنجاح! <a:emoji_5:1519120305061236909>` });
-                }, 2000);
-            } catch (error) {
-                console.error("Error in 'شيل' command:", error);
-                await interaction.editReply({ content: "<a:emoji_3:1519115319040413859> حدث خطأ أثناء تنفيذ الأمر." }).catch(() => {});
-            }
+            warnings[target.id] = []; 
+            saveWarnings();
+            await interaction.editReply({ content: `تم مسح تحذيرات ${target.username} بنجاح!` });
         }, 5000);
     }
 });
 
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
-    if (message.content.includes("السلام عليكم")) message.reply("وعليكم السلام ارحب 👋");
-    
+
+    if (message.content === "!الحذف" && message.author.id === OWNER_ID) {
+        if (watchList.has(message.guild.id)) {
+            watchList.delete(message.guild.id);
+            message.reply("تم إيقاف مراقبة الحذف.");
+        } else {
+            watchList.add(message.guild.id);
+            message.reply("تم تفعيل مراقبة الحذف.");
+        }
+    }
+
+    if (message.content === "امسح" && !message.guild) {
+        const fetched = await message.channel.messages.fetch({ limit: 100 });
+        const botMessages = fetched.filter(m => m.author.id === client.user.id);
+        botMessages.forEach(m => m.delete().catch(() => {}));
+    }
+
     if (message.content.startsWith("-تعال")) {
         const target = message.mentions.members.first();
-        const everyone = message.mentions.everyone || message.content.includes("@here");
+        if (target) {
+            target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url}`)
+                .then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000))
+                .catch(() => message.reply("لم أستطع الإرسال."));
+        }
+    }
 
-        if (everyone) {
-            if (!message.member.permissions.has("ADMINISTRATOR") && !message.member.permissions.has("MANAGE_MESSAGES")) return message.reply("عذراً، هذه الخاصية للإداريين فقط! ⚠️");
-            message.reply("جاري إرسال الطلب للجميع في الخاص... 📩");
-            message.guild.members.fetch().then(members => {
-                members.forEach(m => {
-                    if (!m.user.bot) {
-                        m.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗`)
-                         .then(msg => setTimeout(() => msg.delete().catch(() => {}), 120000))
-                         .catch(() => {});
-                    }
-                });
-            });
-        } else if (target) {
-            target.send(`يطلبك ${message.author.username} في الروم: **${message.channel.name}**\nالرابط: ${message.channel.url} 🔗\n\nإليك المنشن: <@${target.id}>`)
-                .then(msg => {
-                    setTimeout(() => msg.delete().catch(() => {}), 120000);
-                    message.reply("تم إرسال الطلب للشخص في الخاص 📩");
-                })
+    if (message.content.startsWith("-تحذيرات")) {
+        const target = message.mentions.users.first();
+        const list = target ? (warnings[target.id]?.map((r, i) => `${i + 1}- ${r.reason}`).join('\n') || "لا يوجد") : "استخدم -تحذيرات @عضو";
+        message.reply(`التحذيرات:\n${list}`);
+    }
+});
+
+client.login(process.env.DISCORD_TOKEN);
                 .catch(() => message.reply("عذراً، لم أستطع الإرسال، ربما الشخص مغلق الرسائل الخاصة 🔒"));
         } else {
             message.reply("يرجى عمل منشن للشخص أو للجميع! ⚠️");
